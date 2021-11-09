@@ -20,15 +20,36 @@ interface IERC20 {
     function transfer(address receipent, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
     function transferFrom(address sender, address receipent, uint256 amount) external returns (bool);
+}
 
+interface UniswapRouter{
+    function WETH() external pure returns (address);
+
+    function swapTokensForExactETH(
+        uint amountOut,
+        uint amountInMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
 }
 
 
 contract SmartBankAccount {
     address COMPOUND_CETH_ADDRESS = 0x859e9d8a4edadfEDb5A2fF311243af80F85A91b8;
     cETH ceth = cETH(COMPOUND_CETH_ADDRESS);
-    uint totalContractBalance = 0;
     
+    address UNISWAP_ROUTER_ADDRESS = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    UniswapRouter uniswap = UniswapRouter(UNISWAP_ROUTER_ADDRESS);
+
+    uint totalContractBalance = 0;
     mapping(address => uint) balances;
     mapping(address => uint) depositTimestamps;
 
@@ -51,8 +72,22 @@ contract SmartBankAccount {
         IERC20 erc20 = IERC20(erc20TokenSmartContractAddress);
 
         // how many erc20tokens has the user (msg.sender) approved this contract to use?
-        uint256 approvedAmount = erc20.allowance(msg.sender, address(this));
-        erc20.transferFrom(msg.sender, address(this), approvedAmount);
+        uint approvedAmountOfERC20Tokens = erc20.allowance(msg.sender, address(this));
+
+        address token = erc20TokenSmartContractAddress;
+        uint amountETHMin = 0; 
+        address to = address(this);
+        uint deadline = block.timestamp + (24 * 60 * 60);
+
+        // transfer all those tokens that had been approved by user (msg.sender) to the smart contract (address(this))
+        erc20.transferFrom(msg.sender, address(this), approvedAmountOfERC20Tokens);
+
+        erc20.approve(UNISWAP_ROUTER_ADDRESS, approvedAmountOfERC20Tokens);
+
+        address[] memory path = new address[](2);
+        path[0] = token;
+        path[1] = uniswap.WETH();
+        uniswap.swapExactTokensForETH(approvedAmountOfERC20Tokens, amountETHMin, path, to, deadline);
     }
 
     function getAllowanceERC20(address erc20TokenSmartContractAddress) public view returns (uint256) {
