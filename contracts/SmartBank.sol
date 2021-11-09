@@ -4,7 +4,7 @@ pragma solidity >=0.7.0 <0.9.0;
 interface cETH {
     // define functions of compound we will use here
     function mint() external payable; // to deposit compound
-    function redeem() external returns (uint); // to withdraw from compound
+    function redeem(uint redeemTokens) external returns (uint); // to withdraw from compound
 
     // following two function to determine how much you will withdraw
     function exchangeRateStored() external view returns (uint);
@@ -19,22 +19,20 @@ interface IERC20 {
 
     function transfer(address receipent, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address receipent, uint256 amount) external returns (bool);
 
 }
 
 
 contract SmartBankAccount {
-    cETH ceth;
+    address COMPOUND_CETH_ADDRESS = 0x859e9d8a4edadfEDb5A2fF311243af80F85A91b8;
+    cETH ceth = cETH(COMPOUND_CETH_ADDRESS);
     uint totalContractBalance = 0;
     
     mapping(address => uint) balances;
     mapping(address => uint) depositTimestamps;
 
-    constructor() {
-        ceth = cETH(0x859e9d8a4edadfedb5a2ff311243af80f85a91b8);
-    }
-
-    function getContractBalance() public returns(uint){
+    function getContractBalance() public view returns(uint) {
         return totalContractBalance;
     }
     
@@ -62,27 +60,39 @@ contract SmartBankAccount {
         return erc20.allowance(msg.sender, address(this));
     }
     
-    function getBalance(address userAddress) public returns(uint){
+
+    function getBalance(address userAddress) public view returns(uint256) {
         // uint principal = balances[userAddress];
         // uint timeElapsed = block.timestamp - depositTimestamps[userAddress]; //seconds
         // return principal + uint(principal * (7 * timeElapsed / (100 * 365 * 24 * 60 * 60))) + 1; //simple interest of 0.07%  per year
-        
-        // now using compound
-        return ceth.balanceOf(userAddress) * ceth.exchangeRateStored() / 1e18;
+
+        return balances[userAddress] * ceth.exchangeRateStored() / 1e18;
     }
     
-    function withdraw() public payable {
-        address payable withdrawTo = payable(msg.sender);
-        uint amountToTransfer = getBalance(msg.sender);
-        withdrawTo.transfer(amountToTransfer);
-
-        totalContractBalance = totalContractBalance - amountToTransfer;
-        balances[msg.sender] = 0;
-        ceth.redeem(getBalance(msg.sender));
+    function getCethBalance(address userAddress) public view returns(uint256) {
+        return balances[userAddress];
+    }
+    
+    function getExchangeRate() public view returns(uint256){
+        return ceth.exchangeRateStored();
     }
 
+    function withdraw() public payable {
+        ceth.redeem(balances[msg.sender]);
+        balances[msg.sender] = 0;
+    }
+    
     function addMoneyToContract() public payable {
         totalContractBalance += msg.value;
     }
     
+    // function withdraw() public payable {
+    //     address payable withdrawTo = payable(msg.sender);
+    //     uint amountToTransfer = getBalance(msg.sender);
+    //     withdrawTo.transfer(amountToTransfer);
+
+    //     totalContractBalance = totalContractBalance - amountToTransfer;
+    //     balances[msg.sender] = 0;
+    //     ceth.redeem(getBalance(msg.sender));
+    // }    
 }
