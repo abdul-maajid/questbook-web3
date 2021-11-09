@@ -11,6 +11,18 @@ interface cETH {
     function balanceOf(address owner) external view returns (uint256 balance); 
 }
 
+interface IERC20 {
+    
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address sender) external view returns (uint256);
+
+    function transfer(address receipent, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+
+}
+
+
 contract SmartBankAccount {
     cETH ceth;
     uint totalContractBalance = 0;
@@ -27,11 +39,27 @@ contract SmartBankAccount {
     }
     
     function addBalance() public payable {
-        balances[msg.sender] = msg.value;
-        totalContractBalance = totalContractBalance + msg.value;
-        depositTimestamps[msg.sender] = block.timestamp;
-        // send eth to compound
-        ceth.mint{value: msg.sender}();
+        uint256 cEthOfContractBeforeMinting = ceth.balanceOf(address(this)); //this refers to the current contract
+
+        // send ethers to mint()
+        ceth.mint{value: msg.value}();
+        uint256 cEthOfContractAfterMinting = ceth.balanceOf(address(this)); // updated balance after minting
+
+        uint cEthOfUser = cEthOfContractAfterMinting - cEthOfContractBeforeMinting; // the difference is the amount that has been created by the mint() function
+        balances[msg.sender] = cEthOfUser;
+    }
+
+    function addBalanceERC20(address erc20TokenSmartContractAddress) public {
+        IERC20 erc20 = IERC20(erc20TokenSmartContractAddress);
+
+        // how many erc20tokens has the user (msg.sender) approved this contract to use?
+        uint256 approvedAmount = erc20.allowance(msg.sender, address(this));
+        erc20.transferFrom(msg.sender, address(this), approvedAmount);
+    }
+
+    function getAllowanceERC20(address erc20TokenSmartContractAddress) public view returns (uint256) {
+        IERC20 erc20 = IERC20(erc20TokenSmartContractAddress);
+        return erc20.allowance(msg.sender, address(this));
     }
     
     function getBalance(address userAddress) public returns(uint){
@@ -47,8 +75,14 @@ contract SmartBankAccount {
         address payable withdrawTo = payable(msg.sender);
         uint amountToTransfer = getBalance(msg.sender);
         withdrawTo.transfer(amountToTransfer);
+
         totalContractBalance = totalContractBalance - amountToTransfer;
         balances[msg.sender] = 0;
+        ceth.redeem(getBalance(msg.sender));
+    }
+
+    function addMoneyToContract() public payable {
+        totalContractBalance += msg.value;
     }
     
 }
