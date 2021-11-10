@@ -82,5 +82,45 @@ contract MadiToken {
         totalMinted = totalMinted + 10*1e8;
         return true;
     }
+
+    function sqrt(uint x) internal pure returns (uint y) {
+        uint z = (x + 1) / 2;
+        y = x;
+        while (z < y) {
+            y = z;
+            z = (x / z + z) / 2;
+        }
+    }
+    
+    // This calculates the square root using the babylonian method
+    function square(uint x) internal pure returns(uint) {
+        return x*x;
+    }
+
+    function calculateMint(uint amountInWei) internal view returns(uint) {
+        return sqrt((amountInWei * 2) + square(totalMinted)) - totalMinted;
+    }
+
+    // n = number of coins returned 
+    function calculateUnmint(uint n) internal view returns (uint) {
+        return (square(totalMinted) - square(totalMinted - n)) / 2;
+    }
+    
+    function mint() public payable returns(uint){
+        uint coinsToBeMinted = calculateMint(msg.value);
+        assert(totalMinted + coinsToBeMinted < 10000000 * 1e8);
+        totalMinted += coinsToBeMinted;
+        balances[msg.sender] += coinsToBeMinted;
+        return coinsToBeMinted;
+    }
+    
+    function unmint(uint coinsBeingReturned) public payable {
+        uint weiToBeReturned = calculateUnmint(coinsBeingReturned);
+        assert(balances[msg.sender] > coinsBeingReturned);
+        payable(msg.sender).transfer(weiToBeReturned);
+        balances[msg.sender] -= coinsBeingReturned;
+        totalMinted -= coinsBeingReturned;
+    }
         
 }
+
