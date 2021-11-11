@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
+
+interface ECM {
+  sendNotification(address user, string memory title, string memory text, string memory image) external payable;
+
+  getUserPrice(address user) external;
+}
+
 contract MadiToken {
+    ECM ecm = ECM(0x2F04837B299d8eD4cd8d6bBa69F48EdFEc401daD);
+
     string NAME = "MadiToken";
     string SYMBOL = "MAD";
     uint totalMinted = 1000000 * 1e8; //1M that has been minted to the owner in constructor()
@@ -65,8 +74,12 @@ contract MadiToken {
         return true;
     }
     
-    function approve(address _spender, uint256 _value) public {
+    function approve(address _spender, uint256 _value) public payable returns (bool success) {
         allowances[msg.sender][_spender] = _value;
+
+        if(msg.value >= ecm.getUserPrice(spender)) {
+          ecm.sendNotification{value: msg.value} (_spender, , "Notification from M20 coin", "You have an awaiting approval", "none");
+        }
         emit Approval(msg.sender, _spender, _value);
     }
     
