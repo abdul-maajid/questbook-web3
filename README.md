@@ -8,6 +8,4 @@ All working smart contracts during learning from questbook
 
 [Url to Token Contract](https://ropsten.etherscan.io/address/0xF9D6FC492387771021CfA5Ee79085a93d957f01F#code)
 
-[]
-
 [Learn About Bounding Curve](https://yos.io/2018/11/10/bonding-curves/)
